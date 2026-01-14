@@ -6,8 +6,10 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Support\Str;
-use Illuminate\Contracts\Auth\MustVerifyEmail; 
-use Illuminate\Auth\MustVerifyEmail as MustVerifyEmailTrait; 
+use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Auth\MustVerifyEmail as MustVerifyEmailTrait;
+use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Support\Facades\Hash;
 
 class TenantUser extends Authenticatable implements MustVerifyEmail
 {
@@ -24,13 +26,11 @@ class TenantUser extends Authenticatable implements MustVerifyEmail
         'email',
         'password',
         'role',
-        'tenant_id',
         'email_verified_at',
     ];
 
     protected $hidden = [
         'password',
-        'remember_token',
     ];
 
     protected $casts = [
@@ -42,9 +42,29 @@ class TenantUser extends Authenticatable implements MustVerifyEmail
         parent::boot();
 
         static::creating(function ($model) {
-            if (empty($model->id)) {
+            if (! $model->id) {
                 $model->id = (string) Str::uuid();
             }
         });
+    }
+
+    // ✅ Mutator moderno e seguro
+    protected function password(): Attribute
+    {
+        return Attribute::make(
+            set: fn ($value) => Hash::make($value),
+        );
+    }
+
+    // ================= RELAÇÕES =================
+
+    public function vendas()
+    {
+        return $this->hasMany(Venda::class, 'user_id');
+    }
+
+    public function pagamentos()
+    {
+        return $this->hasMany(Pagamento::class, 'user_id');
     }
 }

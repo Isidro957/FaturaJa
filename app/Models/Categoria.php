@@ -1,24 +1,24 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Str;
 
-class Tenant extends Model
+class Categoria extends Model
 {
-    protected $table = 'tenants';
+    use HasFactory;
+
+    protected $connection = 'tenant';
+    protected $table = 'categorias';
 
     public $incrementing = false;
     protected $keyType = 'string';
 
     protected $fillable = [
         'nome',
-        'nif',
-        'subdomain',
-        'database',
-        'email',
-        'logo',
-        'status',
+        'descricao'
     ];
 
     protected static function boot(): void
@@ -30,5 +30,12 @@ class Tenant extends Model
                 $model->id = (string) Str::uuid();
             }
         });
+    }
+
+    // ================= RELAÇÕES =================
+
+    public function produtos()
+    {
+        return $this->hasMany(Produto::class, 'categoria_id');
     }
 }

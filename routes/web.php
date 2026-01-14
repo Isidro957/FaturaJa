@@ -1,97 +1,58 @@
-<?php   
+<?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\TenantAuthController;
-use App\Http\Controllers\TenantUserController;
-use App\Http\Middleware\ResolveTenant;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Foundation\Auth\EmailVerificationRequest;
-use Illuminate\Http\Request;
+use App\Http\Controllers\Landlord\TenantAdminController;
 
 /*
 |--------------------------------------------------------------------------
-| VERIFICAÇÃO DE EMAIL
+| LANDLORD (ADMIN GLOBAL)
 |--------------------------------------------------------------------------
+|
+| Aqui ficam todas as rotas do administrador global (landlord):
+| login, registro, logout, gerenciamento de tenants e usuários globais.
+|
 */
 
-// Notificação de email não verificado
-Route::get('/email/verify', function () {
-    return view('auth.verify-email'); // Blade que você vai criar
-})->middleware('auth:tenant')->name('verification.notice');
-
-// Verificar link de email
-Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
-    // Autentica o usuário automaticamente no guard tenant
-    $user = \App\Models\TenantUser::findOrFail($request->route('id'));
-    Auth::guard('tenant')->login($user);
-
-    $request->fulfill(); // Marca email_verified_at
-
-    return redirect()->route('tenant.dashboard');
-})->middleware(['signed'])->name('verification.verify');
-
-// Reenviar link de verificação
-Route::post('/email/verification-notification', function (Request $request) {
-    $user = $request->user('tenant'); // pega usuário do guard tenant
-    $user->sendEmailVerificationNotification();
-
-    return back()->with('success', 'Link de verificação enviado!');
-})->middleware(['auth:tenant', 'throttle:6,1'])->name('verification.send');
-
-
-/*
-|--------------------------------------------------------------------------
-| LANDLORD (GLOBAL LOGIN/REGISTER)
-|--------------------------------------------------------------------------
-*/
+// Página inicial do Landlord
 Route::get('/', function () {
-    return view('welcome');
+    return view('landlord.welcome');
 });
 
-Route::get('/login', [TenantAuthController::class, 'showLoginForm'])->name('login');
-Route::post('/login', [TenantAuthController::class, 'login']);
+// Login e registro do Landlord
+Route::get('/login', [\App\Http\Controllers\TenantAuthController::class, 'showLoginForm'])->name('login');
+Route::post('/login', [\App\Http\Controllers\TenantAuthController::class, 'login']);
 
-Route::get('/register', [TenantAuthController::class, 'showRegisterForm'])->name('register');
-Route::post('/register', [TenantAuthController::class, 'register']);
+Route::get('/register', [\App\Http\Controllers\TenantAuthController::class, 'showRegisterForm'])->name('register');
+Route::post('/register', [\App\Http\Controllers\TenantAuthController::class, 'register']);
 
+// Rotas protegidas para o Landlord
+Route::middleware(['auth:web'])->group(function () {
 
-/*
-|--------------------------------------------------------------------------
-| TENANT (SUBDOMÍNIO)
-|--------------------------------------------------------------------------
-*/
-Route::domain('{tenant}.faturaja.sdoca')
-    ->middleware(ResolveTenant::class)
-    ->group(function () {
+    // Logout
+    Route::post('/logout', [\App\Http\Controllers\TenantAuthController::class, 'logout'])->name('logout');
 
-        // Login via subdomínio (tenant)
-        Route::get('/authenticate', function (Request $request) {
-            if (!Auth::guard('tenant')->attempt($request->only('email', 'password'))) {
-                abort(401, 'Credenciais inválidas');
-            }
+    // Dashboard do Landlord
+    Route::get('/dashboard', function () {
+        return view('landlord.dashboard');
+    })->name('dashboard');
 
-            $request->session()->regenerate();
+    /*
+    |--------------------------------------------------------------------------
+    | TENANTS CRUD
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('tenants')->name('tenants.')->group(function () {
 
-            return redirect()->route('tenant.dashboard');
-        });
+        // Listar todos os tenants
+        Route::get('/', [TenantAdminController::class, 'index'])->name('index');
 
-        // Rotas protegidas
-        Route::middleware(['auth:tenant', 'tenant.user'])->group(function () {
+        // Criar novo tenant
+        Route::post('/', [TenantAdminController::class, 'store'])->name('store');
 
-            Route::get('/dashboard', function () {
-                return view('tenant.dashboard');
-            })->name('tenant.dashboard');
+        // Adicionar domínio a um tenant
+        Route::post('/{tenant}/domains', [TenantAdminController::class, 'addDomain'])->name('addDomain');
 
-            Route::prefix('users')->name('tenant.users.')->group(function () {
-                Route::get('/', [TenantUserController::class, 'index'])->name('index');
-                Route::get('/create', [TenantUserController::class, 'create'])->name('create');
-                Route::post('/', [TenantUserController::class, 'store'])->name('store');
-                Route::get('/{user}/edit', [TenantUserController::class, 'edit'])->name('edit');
-                Route::put('/{user}', [TenantUserController::class, 'update'])->name('update');
-                Route::delete('/{user}', [TenantUserController::class, 'destroy'])->name('destroy');
-            });
-
-            Route::post('/logout', [TenantAuthController::class, 'logout'])
-                ->name('tenant.logout');
-        });
+        // Criar usuário de um tenant (admin, operador, caixa)
+        Route::post('/{tenant}/users', [TenantAdminController::class, 'createTenantUser'])->name('createUser');
     });
+});

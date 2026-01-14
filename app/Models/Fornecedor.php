@@ -1,12 +1,14 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
-class Tenant extends Model
+class Fornecedor extends Model
 {
-    protected $table = 'tenants';
+    protected $connection = 'tenant';
+    protected $table = 'fornecedores';
 
     public $incrementing = false;
     protected $keyType = 'string';
@@ -14,11 +16,9 @@ class Tenant extends Model
     protected $fillable = [
         'nome',
         'nif',
-        'subdomain',
-        'database',
+        'telefone',
         'email',
-        'logo',
-        'status',
+        'endereco'
     ];
 
     protected static function boot(): void
@@ -30,5 +30,10 @@ class Tenant extends Model
                 $model->id = (string) Str::uuid();
             }
         });
+    }
+
+    public function compras()
+    {
+        return $this->hasMany(Compra::class, 'fornecedor_id');
     }
 }
